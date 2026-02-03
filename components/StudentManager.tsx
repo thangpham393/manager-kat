@@ -162,7 +162,6 @@ const StudentManager: React.FC<StudentManagerProps> = ({
   const handleUpdatePayment = () => {
     if (!selectedEnrollmentForDetail || debtPaymentAmount <= 0) return;
 
-    // 1. Tạo giao dịch tài chính trước (đảm bảo id duy nhất)
     const student = students.find(s => s.id === selectedEnrollmentForDetail.studentId);
     const className = classes.find(c => c.id === selectedEnrollmentForDetail.classId)?.name || 'N/A';
     
@@ -175,7 +174,6 @@ const StudentManager: React.FC<StudentManagerProps> = ({
       description: `Thu nợ học phí học viên ${student?.name} - Lớp ${className}`
     }]);
 
-    // 2. Cập nhật trạng thái đóng học phí của học viên (không lồng setTransactions vào đây)
     setEnrollments(prev => prev.map(e => {
       if (e.id === selectedEnrollmentForDetail.id) {
         const newPaid = e.paidAmount + debtPaymentAmount;
@@ -406,7 +404,7 @@ const StudentManager: React.FC<StudentManagerProps> = ({
         </div>
       </div>
 
-      {/* PREVIEW MODAL (TUITION RECEIPT - REDESIGNED PER KAT EDUCATION MOCKUP) */}
+      {/* PREVIEW MODAL */}
       {isPrintModalOpen && printEnrollment && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[70] p-4">
           <div className="bg-white w-full max-w-2xl rounded-[1.5rem] overflow-hidden shadow-2xl flex flex-col">
@@ -417,10 +415,8 @@ const StudentManager: React.FC<StudentManagerProps> = ({
             
             <div className="p-6 bg-slate-100 overflow-y-auto max-h-[70vh] no-scrollbar">
               <div className="print-area bg-white text-slate-900 shadow-sm p-12 min-h-[842px] w-full max-w-[595px] mx-auto flex flex-col">
-                {/* Header with Logo and Info */}
                 <div className="flex justify-between items-start mb-8">
                   <div className="flex gap-4 items-center">
-                    {/* Simplified Logo to match Mockup */}
                     <div className="w-20 h-20 relative shrink-0">
                       <div className="absolute inset-0 border-2 border-red-600 rounded-full"></div>
                       <div className="absolute inset-1 border border-blue-800 rounded-full flex flex-col items-center justify-center text-center p-1 bg-white">
@@ -438,16 +434,14 @@ const StudentManager: React.FC<StudentManagerProps> = ({
                   </div>
                   <div className="text-center">
                     <div className="w-24 h-24 bg-white border border-slate-200 p-1 mb-1 mx-auto overflow-hidden">
-                      <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=KAT_EDUCATION_PAYMENT" alt="QR" className="w-full h-full object-contain" />
+                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=KAT_EDUCATION_PAYMENT`} alt="QR" className="w-full h-full object-contain" />
                     </div>
                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">QR thanh toán</p>
                   </div>
                 </div>
 
-                {/* Title */}
                 <h1 className="text-2xl font-bold text-center mb-10 uppercase tracking-[0.2em] border-b-0">THÔNG BÁO HỌC PHÍ</h1>
 
-                {/* Body Details */}
                 <div className="space-y-5 text-sm mb-12 flex-1">
                   <div className="flex">
                     <span className="w-36 shrink-0 text-slate-600">Họ và tên:</span>
@@ -477,7 +471,6 @@ const StudentManager: React.FC<StudentManagerProps> = ({
                   </div>
                 </div>
 
-                {/* Footer Notes */}
                 <div className="mb-12">
                   <p className="font-bold text-xs mb-2">Lưu ý:</p>
                   <div className="italic text-[10px] text-slate-500 space-y-1.5 pl-2 border-l-2 border-slate-100">
@@ -487,7 +480,6 @@ const StudentManager: React.FC<StudentManagerProps> = ({
                   </div>
                 </div>
 
-                {/* Signature Sections */}
                 <div className="grid grid-cols-2 text-center text-xs font-bold uppercase tracking-widest mt-auto">
                   <div>
                     <p className="mb-24">Người lập phiếu</p>
@@ -510,24 +502,14 @@ const StudentManager: React.FC<StudentManagerProps> = ({
                 disabled={isExporting}
                 className={`flex-[2] py-4 bg-slate-900 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                {isExporting ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    ĐANG XUẤT ẢNH...
-                  </>
-                ) : (
-                  <>🖼️ TẢI ẢNH PHIẾU BÁO</>
-                )}
+                {isExporting ? "ĐANG XUẤT..." : "🖼️ TẢI ẢNH PHIẾU BÁO"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* TUITION MODAL (FOR REGISTRATION) */}
+      {/* TUITION MODAL */}
       {isTuitionModalOpen && selectedStudentForTuition && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300 flex flex-col max-h-[95vh]">
@@ -565,7 +547,7 @@ const StudentManager: React.FC<StudentManagerProps> = ({
       {/* DEBT COLLECTION MODAL */}
       {isDetailModalOpen && selectedEnrollmentForDetail && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white w-full max-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-200">
             <div className="p-8 bg-slate-900 text-white flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-black uppercase tracking-tight">Thu hồi nợ học phí</h3>
@@ -619,17 +601,19 @@ const StudentManager: React.FC<StudentManagerProps> = ({
         </div>
       )}
 
-      {/* STUDENT FORM MODAL */}
+      {/* STUDENT FORM MODAL - FIXED MAX-WIDTH */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white w-full max-md:max-w-md rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in duration-200">
-            <h3 className="text-2xl font-black text-slate-900 mb-8 uppercase tracking-tight">{editingStudent ? 'Sửa hồ sơ' : 'Học viên mới'}</h3>
-            <div className="space-y-5">
-              <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Họ và tên</label><input type="text" className="w-full p-4 bg-slate-50 border-0 rounded-2xl font-bold text-slate-800" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} /></div>
-              <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Số điện thoại</label><input type="text" className="w-full p-4 bg-slate-50 border-0 rounded-2xl font-bold text-slate-800" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} /></div>
-              <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Trạng thái</label><select className="w-full p-4 bg-slate-50 border-0 rounded-2xl font-bold text-slate-800" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as 'active' | 'inactive'})}><option value="active">Đang học</option><option value="inactive">Đã nghỉ</option></select></div>
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-200">
+            <div className="p-8 bg-slate-50 border-b">
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{editingStudent ? 'Sửa hồ sơ' : 'Học viên mới'}</h3>
             </div>
-            <div className="mt-10 flex gap-4"><button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 rounded-2xl">Hủy</button><button onClick={() => { if (editingStudent) { setStudents(students.map(s => s.id === editingStudent.id ? { ...s, ...formData } : s)); } else { setStudents([...students, { id: `S-${Date.now()}`, ...formData }]); } setIsModalOpen(false); }} className="flex-[2] py-4 font-black bg-red-600 text-white rounded-2xl hover:bg-red-700 shadow-xl shadow-red-100 uppercase tracking-widest transition-all">Lưu hồ sơ</button></div>
+            <div className="p-10 space-y-5">
+              <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Họ và tên</label><input type="text" className="w-full p-4 bg-slate-100 border-0 rounded-2xl font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-red-600 outline-none transition-all" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} /></div>
+              <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Số điện thoại</label><input type="text" className="w-full p-4 bg-slate-100 border-0 rounded-2xl font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-red-600 outline-none transition-all" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} /></div>
+              <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Trạng thái</label><select className="w-full p-4 bg-slate-100 border-0 rounded-2xl font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-red-600" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as 'active' | 'inactive'})}><option value="active">Đang học</option><option value="inactive">Đã nghỉ</option></select></div>
+            </div>
+            <div className="p-10 pt-0 flex gap-4"><button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 rounded-2xl transition-all">Hủy</button><button onClick={() => { if (editingStudent) { setStudents(students.map(s => s.id === editingStudent.id ? { ...s, ...formData } : s)); } else { setStudents([...students, { id: `S-${Date.now()}`, ...formData }]); } setIsModalOpen(false); }} className="flex-[2] py-4 font-black bg-red-600 text-white rounded-2xl hover:bg-red-700 shadow-xl shadow-red-100 uppercase tracking-widest transition-all">Lưu hồ sơ</button></div>
           </div>
         </div>
       )}
