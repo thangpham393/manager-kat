@@ -20,7 +20,7 @@ const AIInsights: React.FC = () => {
   const generateReport = async () => {
     setLoading(true);
     const result = await getAIInsights(mockDataForAI);
-    setInsight(result);
+    setInsight(result ?? null);
     setLoading(false);
   };
 
