@@ -71,7 +71,7 @@ const App: React.FC = () => {
           setClasses(MOCK_CLASSES);
           setEnrollments(MOCK_ENROLLMENTS);
           setTransactions([
-            { id: '1', type: 'income', category: 'Học phí', amount: 4500000, date: '2024-03-20', description: 'Học phí Hán Ngữ Sơ Cấp 1 - Học viên Nguyễn Văn A' },
+            { id: '1', type: 'income', category: 'Học phí', amount: 4500000, date: '2024-03-20', description: 'Học phí Hán Ngữ Sơ Cấp 1 - Học viên Nguyễn Văn A', studentId: 'S1' },
           ]);
         }
       }
@@ -132,7 +132,7 @@ const App: React.FC = () => {
       case 'ai-insights':
         return <AIInsights />;
       case 'students':
-        return <StudentManager students={students} setStudents={setStudents} attendanceRecords={attendanceRecords} setAttendanceRecords={setAttendanceRecords} classes={classes} enrollments={enrollments} setEnrollments={setEnrollments} setTransactions={setTransactions} makeupLessons={makeupLessons} />;
+        return <StudentManager students={students} setStudents={setStudents} attendanceRecords={attendanceRecords} setAttendanceRecords={setAttendanceRecords} classes={classes} enrollments={enrollments} setEnrollments={setEnrollments} transactions={transactions} setTransactions={setTransactions} makeupLessons={makeupLessons} />;
       case 'teachers':
         return <TeacherManager teachers={teachers} setTeachers={setTeachers} attendanceRecords={attendanceRecords} setAttendanceRecords={setAttendanceRecords} classes={classes} makeupLessons={makeupLessons} enrollments={enrollments} />;
       default:

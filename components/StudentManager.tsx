@@ -12,12 +12,13 @@ interface StudentManagerProps {
   classes: Class[];
   enrollments: Enrollment[];
   setEnrollments: React.Dispatch<React.SetStateAction<Enrollment[]>>;
+  transactions: Transaction[];
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   makeupLessons: MakeupLesson[];
 }
 
 const StudentManager: React.FC<StudentManagerProps> = ({ 
-  students, setStudents, attendanceRecords, setAttendanceRecords, classes, enrollments, setEnrollments, setTransactions, makeupLessons 
+  students, setStudents, attendanceRecords, setAttendanceRecords, classes, enrollments, setEnrollments, transactions, setTransactions, makeupLessons 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'list' | 'pending' | 'expiring'>('list');
@@ -31,6 +32,11 @@ const StudentManager: React.FC<StudentManagerProps> = ({
   const [selectedEnrollmentForDetail, setSelectedEnrollmentForDetail] = useState<Enrollment | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [debtPaymentAmount, setDebtPaymentAmount] = useState<number>(0);
+
+  // History state
+  const [selectedStudentForHistory, setSelectedStudentForHistory] = useState<Student | null>(null);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [historyTab, setHistoryTab] = useState<'enrollments' | 'payments'>('enrollments');
 
   // Print state
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -125,11 +131,12 @@ const StudentManager: React.FC<StudentManagerProps> = ({
   const handleSaveTuition = () => {
     if (!selectedStudentForTuition || !tuitionForm.classId) return;
 
+    const enrollmentId = `E-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
     const status = tuitionForm.paidAmount >= tuitionForm.totalTuition ? 'paid' : 
                    tuitionForm.paidAmount > 0 ? 'partial' : 'unpaid';
 
     const newEnrollment: Enrollment = {
-      id: `E-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      id: enrollmentId,
       studentId: selectedStudentForTuition.id,
       classId: tuitionForm.classId,
       startDate: tuitionForm.startDate,
@@ -152,7 +159,9 @@ const StudentManager: React.FC<StudentManagerProps> = ({
         category: 'Học phí',
         amount: tuitionForm.paidAmount,
         date: new Date().toISOString().split('T')[0],
-        description: `Thu phí học viên ${selectedStudentForTuition.name} - Lớp ${className}`
+        description: `Thu phí học viên ${selectedStudentForTuition.name} - Lớp ${className}`,
+        studentId: selectedStudentForTuition.id,
+        enrollmentId: enrollmentId
       }]);
     }
 
@@ -171,7 +180,9 @@ const StudentManager: React.FC<StudentManagerProps> = ({
       category: 'Học phí',
       amount: debtPaymentAmount,
       date: new Date().toISOString().split('T')[0],
-      description: `Thu nợ học phí học viên ${student?.name} - Lớp ${className}`
+      description: `Thu nợ học phí học viên ${student?.name} - Lớp ${className}`,
+      studentId: selectedEnrollmentForDetail.studentId,
+      enrollmentId: selectedEnrollmentForDetail.id
     }]);
 
     setEnrollments(prev => prev.map(e => {
@@ -214,6 +225,12 @@ const StudentManager: React.FC<StudentManagerProps> = ({
   const handleOpenPrintPreview = (en: Enrollment) => {
     setPrintEnrollment(en);
     setIsPrintModalOpen(true);
+  };
+
+  const handleOpenHistory = (student: Student) => {
+    setSelectedStudentForHistory(student);
+    setHistoryTab('enrollments');
+    setIsHistoryModalOpen(true);
   };
 
   const handleDownloadImage = async () => {
@@ -333,6 +350,7 @@ const StudentManager: React.FC<StudentManagerProps> = ({
                     </td>
                     <td className="px-8 py-5 text-right">
                       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleOpenHistory(student)} className="p-2 hover:bg-slate-100 text-slate-600 rounded-lg" title="Lịch sử học tập">🕰️</button>
                         <button onClick={() => handleOpenTuition(student)} className="p-2 hover:bg-green-50 text-green-600 rounded-lg" title="Đăng ký & Thu phí">💰</button>
                         <button onClick={() => { setEditingStudent(student); setFormData({ name: student.name, phone: student.phone, email: student.email, status: student.status }); setIsModalOpen(true); }} className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg">✏️</button>
                         <button onClick={() => setDeletingStudentId(student.id)} className="p-2 hover:bg-red-50 text-red-400">🗑️</button>
@@ -403,6 +421,97 @@ const StudentManager: React.FC<StudentManagerProps> = ({
           </table>
         </div>
       </div>
+
+      {/* HISTORY MODAL (CHI TIẾT HỒ SƠ & GIAO DỊCH) */}
+      {isHistoryModalOpen && selectedStudentForHistory && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[70] p-4">
+          <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[3rem] overflow-hidden shadow-2xl flex flex-col animate-in zoom-in duration-300">
+            <div className="p-8 bg-slate-900 text-white flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black uppercase tracking-tight">{selectedStudentForHistory.name}</h3>
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Hồ sơ học tập & Lịch sử tài chính</p>
+              </div>
+              <button onClick={() => setIsHistoryModalOpen(false)} className="text-white/60 hover:text-white text-2xl">✕</button>
+            </div>
+
+            <div className="bg-slate-50 border-b p-2 flex gap-1">
+              <button 
+                onClick={() => setHistoryTab('enrollments')}
+                className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${historyTab === 'enrollments' ? 'bg-white shadow-md text-red-600' : 'text-slate-400'}`}
+              >
+                🏫 Khóa học (Lịch sử đăng ký)
+              </button>
+              <button 
+                onClick={() => setHistoryTab('payments')}
+                className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${historyTab === 'payments' ? 'bg-white shadow-md text-green-600' : 'text-slate-400'}`}
+              >
+                💰 Giao dịch (Lịch sử đóng phí)
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-10 no-scrollbar">
+              {historyTab === 'enrollments' ? (
+                <div className="space-y-6">
+                  {enrollmentDetails.filter(e => e.studentId === selectedStudentForHistory.id).sort((a,b) => b.startDate.localeCompare(a.startDate)).map(en => (
+                    <div key={en.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                           <span className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase border border-red-100">
+                             🏮 {classes.find(c => c.id === en.classId)?.name}
+                           </span>
+                           <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase border ${en.status === 'paid' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                             {en.status === 'paid' ? 'Đã đóng đủ' : 'Còn nợ phí'}
+                           </span>
+                        </div>
+                        <p className="text-sm font-bold text-slate-800">Khóa học: {en.startDate.split('-').reverse().join('/')} → {en.endDate.split('-').reverse().join('/')}</p>
+                        <p className="text-xs text-slate-400 font-medium mt-1 uppercase tracking-widest">Thời lượng: {en.calculatedSessions} buổi | Đã học: {en.attendedCount} buổi</p>
+                      </div>
+                      <div className="text-center md:text-right px-8 border-l border-slate-50">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Học phí gói</p>
+                        <p className="text-xl font-black text-slate-900">{formatCurrency(en.totalTuition)}</p>
+                        <p className={`text-[10px] font-black mt-1 ${en.remaining <= 2 ? 'text-red-600 animate-pulse' : 'text-slate-400'}`}>
+                          CÒN {en.remaining} BUỔI HỌC
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {enrollments.filter(e => e.studentId === selectedStudentForHistory.id).length === 0 && (
+                    <div className="py-20 text-center text-slate-300 font-black uppercase text-xs italic">Chưa có lịch sử đăng ký lớp</div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {transactions.filter(t => t.studentId === selectedStudentForHistory.id).sort((a,b) => b.date.localeCompare(a.date)).map(tx => (
+                    <div key={tx.id} className="p-6 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between group hover:border-green-200 transition-all">
+                      <div className="flex items-center gap-6">
+                        <div className="bg-white p-4 rounded-2xl shadow-sm text-center min-w-[100px]">
+                           <p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">Ngày đóng</p>
+                           <p className="text-sm font-black text-slate-800">{tx.date.split('-').reverse().join('/')}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-green-600 uppercase tracking-widest mb-1">Đã thu học phí</p>
+                          <p className="text-sm font-medium text-slate-600">{tx.description}</p>
+                        </div>
+                      </div>
+                      <div className="text-right px-6">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Số tiền</p>
+                        <p className="text-2xl font-black text-green-600">+{formatCurrency(tx.amount)}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {transactions.filter(t => t.studentId === selectedStudentForHistory.id).length === 0 && (
+                    <div className="py-20 text-center text-slate-300 font-black uppercase text-xs italic">Chưa có lịch sử giao dịch</div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-8 bg-slate-50 border-t flex justify-end">
+              <button onClick={() => setIsHistoryModalOpen(false)} className="px-10 py-4 bg-slate-900 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-black transition-all">Đóng hồ sơ</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PREVIEW MODAL */}
       {isPrintModalOpen && printEnrollment && (
@@ -601,7 +710,7 @@ const StudentManager: React.FC<StudentManagerProps> = ({
         </div>
       )}
 
-      {/* STUDENT FORM MODAL - FIXED MAX-WIDTH */}
+      {/* STUDENT FORM MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-200">

@@ -29,8 +29,8 @@ export interface Teacher {
   id: string;
   name: string;
   phone: string;
-  hourlyRate: number; // Mức lương cơ bản (fallback)
-  salaryTiers: TeacherSalaryTier[]; // Lương theo sĩ số
+  hourlyRate: number; 
+  salaryTiers: TeacherSalaryTier[]; 
   expertise: string[];
 }
 
@@ -125,6 +125,8 @@ export interface Transaction {
   amount: number;
   date: string;
   description: string;
+  studentId?: string; // Liên kết tới học viên
+  enrollmentId?: string; // Liên kết tới gói học phí cụ thể
 }
 
 export type ViewType = 'dashboard' | 'students' | 'teachers' | 'assistants' | 'classes' | 'schedule' | 'finance' | 'ai-insights';
