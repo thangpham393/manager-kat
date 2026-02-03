@@ -76,11 +76,14 @@ const ClassManager: React.FC<ClassManagerProps> = ({
       alert('Vui lòng điền tên lớp và lịch học');
       return;
     }
+    
+    const finalData = classFormData as Class;
+    
     if (mode === 'edit') {
-      setClasses(classes.map(c => c.id === selectedClass?.id ? (classFormData as Class) : c));
+      setClasses(classes.map(c => c.id === selectedClass?.id ? finalData : c));
       setIsEditModalOpen(false);
     } else {
-      setClasses([...classes, classFormData as Class]);
+      setClasses([...classes, finalData]);
       setIsCreateModalOpen(false);
     }
     setSelectedClass(null);
@@ -89,7 +92,6 @@ const ClassManager: React.FC<ClassManagerProps> = ({
   const handleAddStudentToClass = (student: Student) => {
     if (!selectedClass) return;
     
-    // Kiểm tra sĩ số
     const currentEnrollments = enrollments.filter(e => e.classId === selectedClass.id);
     if (currentEnrollments.length >= selectedClass.maxStudents) {
       alert('Lớp đã đầy sĩ số!');
@@ -105,14 +107,13 @@ const ClassManager: React.FC<ClassManagerProps> = ({
       calculatedSessions: calculateSessionsBetweenDates(selectedClass.startDate, selectedClass.endDate, selectedClass.schedule),
       tuitionPerSession: selectedClass.tuitionPerSession,
       materialFee: 0,
-      totalTuition: 0, // Sẽ được tính lại ở StudentManager nếu cần đóng phí
+      totalTuition: 0,
       paidAmount: 0,
       status: 'unpaid'
     };
 
     setEnrollments(prev => [...prev, newEnrollment]);
     setStudentSearch('');
-    // Giữ nguyên modal để thêm tiếp nếu muốn
   };
 
   const availableStudents = useMemo(() => {
@@ -169,7 +170,6 @@ const ClassManager: React.FC<ClassManagerProps> = ({
           
           return (
             <div key={cls.id} className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 hover:border-slate-200 transition-all group relative overflow-hidden">
-              {/* Confirm Delete Overlay */}
               {isDeleting && (
                 <div className="absolute inset-0 bg-red-600/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-6 text-white animate-in zoom-in duration-200">
                   <p className="font-black text-sm uppercase mb-4 tracking-widest text-center">Xóa vĩnh viễn lớp {cls.name}?</p>
@@ -180,7 +180,6 @@ const ClassManager: React.FC<ClassManagerProps> = ({
                 </div>
               )}
 
-              {/* Confirm Close Overlay */}
               {isClosing && (
                 <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-6 text-white animate-in zoom-in duration-200">
                   <p className="font-black text-sm uppercase mb-4 tracking-widest text-center">Xác nhận kết thúc lớp học này?</p>
@@ -248,56 +247,62 @@ const ClassManager: React.FC<ClassManagerProps> = ({
             </div>
           );
         })}
-
-        {filteredClasses.length === 0 && (
-          <div className="col-span-2 py-32 flex flex-col items-center justify-center bg-white border-2 border-dashed border-slate-100 rounded-[3rem]">
-            <span className="text-4xl opacity-20 mb-4">🏫</span>
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Không có lớp học nào trong danh sách này</p>
-          </div>
-        )}
       </div>
 
       {/* MODAL TẠO MỚI / SỬA LỚP */}
       {(isCreateModalOpen || isEditModalOpen) && classFormData && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white w-full max-w-2xl max-h-[95vh] rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-200 flex flex-col">
             <div className={`p-8 ${isCreateModalOpen ? 'bg-red-600' : 'bg-blue-600'} text-white flex justify-between items-center`}>
-              <div><h3 className="text-2xl font-black uppercase tracking-tight">{isCreateModalOpen ? 'Mở lớp mới' : 'Sửa lớp học'}</h3><p className="text-white/70 text-xs font-bold mt-1">Hệ thống quản lý đào tạo</p></div>
+              <div><h3 className="text-2xl font-black uppercase tracking-tight">{isCreateModalOpen ? 'Mở lớp mới' : 'Sửa lớp học'}</h3><p className="text-white/70 text-xs font-bold mt-1">Thông tin quản lý khóa học</p></div>
               <button onClick={() => {setIsCreateModalOpen(false); setIsEditModalOpen(false);}} className="text-white/60 hover:text-white text-2xl">✕</button>
             </div>
-            <div className="p-8 overflow-y-auto space-y-6">
+            <div className="p-8 overflow-y-auto space-y-6 no-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="col-span-2"><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Tên lớp học</label><input type="text" className="w-full p-4 border-2 border-slate-100 focus:border-red-600 outline-none rounded-2xl font-bold transition-all" placeholder="Ví dụ: Hán Ngữ Sơ Cấp 1 - Tối 2/4" value={classFormData.name} onChange={(e) => setClassFormData({...classFormData, name: e.target.value})} /></div>
-                <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Giáo viên phụ trách</label><select className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold outline-none" value={classFormData.teacherId} onChange={(e) => setClassFormData({...classFormData, teacherId: e.target.value})}>{teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+                <div className="col-span-2"><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Tên lớp học</label><input type="text" className="w-full p-4 border-2 border-slate-100 focus:border-red-600 outline-none rounded-2xl font-bold transition-all" value={classFormData.name} onChange={(e) => setClassFormData({...classFormData, name: e.target.value})} /></div>
+                <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Giáo viên</label><select className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold outline-none" value={classFormData.teacherId} onChange={(e) => setClassFormData({...classFormData, teacherId: e.target.value})}>{teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
                 <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Sĩ số tối đa</label><input type="number" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold outline-none" value={classFormData.maxStudents} onChange={(e) => setClassFormData({...classFormData, maxStudents: parseInt(e.target.value)})} /></div>
+                
+                {/* PHẦN CHỈNH SỬA THỜI GIAN KHÓA HỌC */}
+                <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Ngày bắt đầu</label>
+                    <input type="date" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-red-600 transition-all" value={classFormData.startDate} onChange={(e) => setClassFormData({...classFormData, startDate: e.target.value})} />
+                </div>
+                <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Ngày kết thúc (Dự kiến)</label>
+                    <input type="date" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-red-600 transition-all" value={classFormData.endDate} onChange={(e) => setClassFormData({...classFormData, endDate: e.target.value})} />
+                </div>
+
                 <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Học phí / Buổi</label><input type="number" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold text-red-600 outline-none" value={classFormData.tuitionPerSession} onChange={(e) => setClassFormData({...classFormData, tuitionPerSession: parseInt(e.target.value)})} /></div>
-                <div><label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Ngày khai giảng</label><input type="date" className="w-full p-4 border-2 border-slate-100 rounded-2xl font-bold outline-none" value={classFormData.startDate} onChange={(e) => setClassFormData({...classFormData, startDate: e.target.value})} /></div>
               </div>
               
+              {/* PHẦN CHỈNH SỬA LỊCH HỌC TRONG TUẦN (GIỜ HỌC) */}
               <div className="space-y-4">
-                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Thiết lập lịch học cố định</label>
+                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Thiết lập lịch học & Giờ học</label>
                  <div className="grid grid-cols-1 gap-3">
                    {classFormData.schedule?.map((s, idx) => (
-                     <div key={idx} className="flex gap-3 bg-slate-50 p-4 rounded-2xl items-center">
-                       <select className="bg-transparent font-bold outline-none text-slate-700" value={s.dayOfWeek} onChange={(e) => {
+                     <div key={idx} className="flex gap-3 bg-slate-50 p-4 rounded-2xl items-center border border-slate-100">
+                       <select className="bg-white px-3 py-2 rounded-xl font-bold outline-none text-slate-700 shadow-sm" value={s.dayOfWeek} onChange={(e) => {
                          const newSchedule = [...(classFormData.schedule || [])];
-                         newSchedule[idx].dayOfWeek = parseInt(e.target.value) as DayOfWeek;
+                         newSchedule[idx] = { ...newSchedule[idx], dayOfWeek: parseInt(e.target.value) as DayOfWeek };
                          setClassFormData({...classFormData, schedule: newSchedule});
                        }}>
                          {days.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
                        </select>
-                       <input type="time" className="bg-transparent font-bold outline-none text-red-600" value={s.startTime} onChange={(e) => {
-                         const newSchedule = [...(classFormData.schedule || [])];
-                         newSchedule[idx].startTime = e.target.value;
-                         setClassFormData({...classFormData, schedule: newSchedule});
-                       }} />
-                       <span className="text-slate-300">→</span>
-                       <input type="time" className="bg-transparent font-bold outline-none text-red-600" value={s.endTime} onChange={(e) => {
-                         const newSchedule = [...(classFormData.schedule || [])];
-                         newSchedule[idx].endTime = e.target.value;
-                         setClassFormData({...classFormData, schedule: newSchedule});
-                       }} />
-                       <button onClick={() => setClassFormData({...classFormData, schedule: classFormData.schedule?.filter((_, i) => i !== idx)})} className="ml-auto text-slate-300 hover:text-red-600 transition-colors">✕</button>
+                       <div className="flex items-center gap-2 flex-1">
+                            <input type="time" className="flex-1 p-2 bg-white rounded-xl font-black text-red-600 shadow-sm border-0 outline-none" value={s.startTime} onChange={(e) => {
+                                const newSchedule = [...(classFormData.schedule || [])];
+                                newSchedule[idx] = { ...newSchedule[idx], startTime: e.target.value };
+                                setClassFormData({...classFormData, schedule: newSchedule});
+                            }} />
+                            <span className="text-slate-300 font-bold">→</span>
+                            <input type="time" className="flex-1 p-2 bg-white rounded-xl font-black text-red-600 shadow-sm border-0 outline-none" value={s.endTime} onChange={(e) => {
+                                const newSchedule = [...(classFormData.schedule || [])];
+                                newSchedule[idx] = { ...newSchedule[idx], endTime: e.target.value };
+                                setClassFormData({...classFormData, schedule: newSchedule});
+                            }} />
+                       </div>
+                       <button onClick={() => setClassFormData({...classFormData, schedule: classFormData.schedule?.filter((_, i) => i !== idx)})} className="p-2 text-slate-300 hover:text-red-600 transition-colors">✕</button>
                      </div>
                    ))}
                    <button onClick={() => setClassFormData({...classFormData, schedule: [...(classFormData.schedule || []), { dayOfWeek: DayOfWeek.Monday, startTime: '18:00', endTime: '19:30' }]})} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[10px] font-black uppercase text-slate-400 hover:border-red-200 hover:text-red-600 transition-all">＋ Thêm buổi học trong tuần</button>
@@ -311,7 +316,7 @@ const ClassManager: React.FC<ClassManagerProps> = ({
 
       {/* MODAL QUẢN LÝ HỌC VIÊN TRONG LỚP */}
       {isDetailModalOpen && selectedClass && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
           <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col animate-in zoom-in duration-200">
             <div className="p-8 bg-slate-900 text-white flex justify-between items-center">
               <div>
@@ -322,7 +327,6 @@ const ClassManager: React.FC<ClassManagerProps> = ({
             </div>
             
             <div className="flex-1 overflow-y-auto p-10 flex flex-col md:flex-row gap-8">
-              {/* Danh sách hiện tại */}
               <div className="flex-1 space-y-4">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Học viên chính thức</h4>
                 <div className="grid grid-cols-1 gap-3">
@@ -344,7 +348,6 @@ const ClassManager: React.FC<ClassManagerProps> = ({
                 </div>
               </div>
 
-              {/* Form thêm học viên */}
               <div className="w-full md:w-80 space-y-4">
                 <div className="bg-slate-900 p-6 rounded-[2rem] text-white">
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-4">Thêm học viên vào lớp</h4>
