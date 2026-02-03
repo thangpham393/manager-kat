@@ -52,6 +52,8 @@ const StudentManager: React.FC<StudentManagerProps> = ({
     sessions: 12,
     tuitionPerSession: 300000, 
     materialFee: 0,
+    discountType: 'percent' as 'percent' | 'amount',
+    discountValue: 0,
     paidAmount: 0,
     totalTuition: 3600000
   });
@@ -69,12 +71,22 @@ const StudentManager: React.FC<StudentManagerProps> = ({
     }
   }, [selectedEnrollmentForDetail]);
 
+  // Logic tính toán tổng tiền có áp dụng ưu đãi
   useEffect(() => {
     const selectedClass = activeClasses.find(c => c.id === tuitionForm.classId);
     if (!selectedClass || !tuitionForm.startDate || !tuitionForm.endDate) return;
 
     const sessions = calculateSessionsBetweenDates(tuitionForm.startDate, tuitionForm.endDate, selectedClass.schedule);
-    const total = (sessions * tuitionForm.tuitionPerSession) + tuitionForm.materialFee;
+    const subtotal = (sessions * tuitionForm.tuitionPerSession) + tuitionForm.materialFee;
+    
+    let discountAmount = 0;
+    if (tuitionForm.discountType === 'percent') {
+      discountAmount = (subtotal * tuitionForm.discountValue) / 100;
+    } else {
+      discountAmount = tuitionForm.discountValue;
+    }
+
+    const total = Math.max(0, subtotal - discountAmount);
     
     setTuitionForm(prev => ({ 
       ...prev, 
@@ -82,20 +94,26 @@ const StudentManager: React.FC<StudentManagerProps> = ({
       totalTuition: total,
       paidAmount: prev.paidAmount > 0 ? prev.paidAmount : total
     }));
-  }, [tuitionForm.startDate, tuitionForm.endDate, tuitionForm.classId, tuitionForm.tuitionPerSession, tuitionForm.materialFee, activeClasses]);
+  }, [
+    tuitionForm.startDate, 
+    tuitionForm.endDate, 
+    tuitionForm.classId, 
+    tuitionForm.tuitionPerSession, 
+    tuitionForm.materialFee, 
+    tuitionForm.discountType, 
+    tuitionForm.discountValue, 
+    activeClasses
+  ]);
 
   const handleSessionsChange = (val: number) => {
     const selectedClass = activeClasses.find(c => c.id === tuitionForm.classId);
     if (!selectedClass) return;
 
     const endDate = calculateEndDateFromSessions(tuitionForm.startDate, val, selectedClass.schedule);
-    const total = (val * tuitionForm.tuitionPerSession) + tuitionForm.materialFee;
     setTuitionForm(prev => ({ 
       ...prev, 
       sessions: val, 
-      endDate,
-      totalTuition: total,
-      paidAmount: total
+      endDate
     }));
   };
 
@@ -104,7 +122,7 @@ const StudentManager: React.FC<StudentManagerProps> = ({
     const defaultClass = activeClasses[0];
     const initialStartDate = new Date().toISOString().split('T')[0];
     const initialSessions = 12;
-    const initialRate = 300000;
+    const initialRate = defaultClass?.tuitionPerSession || 300000;
     const initialMaterial = 0;
     
     let initialEndDate = '';
@@ -121,6 +139,8 @@ const StudentManager: React.FC<StudentManagerProps> = ({
       sessions: initialSessions,
       tuitionPerSession: initialRate,
       materialFee: initialMaterial,
+      discountType: 'percent',
+      discountValue: 0,
       paidAmount: total,
       totalTuition: total
     });
@@ -135,6 +155,12 @@ const StudentManager: React.FC<StudentManagerProps> = ({
     const status = tuitionForm.paidAmount >= tuitionForm.totalTuition ? 'paid' : 
                    tuitionForm.paidAmount > 0 ? 'partial' : 'unpaid';
 
+    // Tính toán lại discountAmount để lưu trữ
+    const subtotal = (tuitionForm.sessions * tuitionForm.tuitionPerSession) + tuitionForm.materialFee;
+    const discountAmount = tuitionForm.discountType === 'percent' 
+      ? (subtotal * tuitionForm.discountValue) / 100 
+      : tuitionForm.discountValue;
+
     const newEnrollment: Enrollment = {
       id: enrollmentId,
       studentId: selectedStudentForTuition.id,
@@ -144,6 +170,9 @@ const StudentManager: React.FC<StudentManagerProps> = ({
       calculatedSessions: tuitionForm.sessions,
       tuitionPerSession: tuitionForm.tuitionPerSession,
       materialFee: tuitionForm.materialFee,
+      discountType: tuitionForm.discountType,
+      discountValue: tuitionForm.discountValue,
+      discountAmount: discountAmount,
       totalTuition: tuitionForm.totalTuition,
       paidAmount: tuitionForm.paidAmount,
       status: status
@@ -159,7 +188,7 @@ const StudentManager: React.FC<StudentManagerProps> = ({
         category: 'Học phí',
         amount: tuitionForm.paidAmount,
         date: new Date().toISOString().split('T')[0],
-        description: `Thu phí học viên ${selectedStudentForTuition.name} - Lớp ${className}`,
+        description: `Thu phí học viên ${selectedStudentForTuition.name} - Lớp ${className}${discountAmount > 0 ? ` (Đã giảm ${formatCurrency(discountAmount)})` : ''}`,
         studentId: selectedStudentForTuition.id,
         enrollmentId: enrollmentId
       }]);
@@ -465,6 +494,9 @@ const StudentManager: React.FC<StudentManagerProps> = ({
                         </div>
                         <p className="text-sm font-bold text-slate-800">Khóa học: {en.startDate.split('-').reverse().join('/')} → {en.endDate.split('-').reverse().join('/')}</p>
                         <p className="text-xs text-slate-400 font-medium mt-1 uppercase tracking-widest">Thời lượng: {en.calculatedSessions} buổi | Đã học: {en.attendedCount} buổi</p>
+                        {en.discountAmount && en.discountAmount > 0 && (
+                          <p className="text-[10px] font-bold text-green-600 uppercase mt-1 italic">🎉 Đã áp dụng ưu đãi: -{formatCurrency(en.discountAmount)}</p>
+                        )}
                       </div>
                       <div className="text-center md:text-right px-8 border-l border-slate-50">
                         <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Học phí gói</p>
@@ -564,12 +596,18 @@ const StudentManager: React.FC<StudentManagerProps> = ({
                   </div>
                   <div className="flex">
                     <span className="w-36 shrink-0 text-slate-600">Học phí:</span>
-                    <span className="font-bold text-slate-800">{formatCurrency(printEnrollment.totalTuition - printEnrollment.materialFee)} đồng</span>
+                    <span className="font-bold text-slate-800">{formatCurrency(printEnrollment.calculatedSessions * printEnrollment.tuitionPerSession)} đồng</span>
                   </div>
                   <div className="flex">
                     <span className="w-36 shrink-0 text-slate-600">Giáo trình:</span>
                     <span className="font-bold text-slate-800">{formatCurrency(printEnrollment.materialFee)} đồng</span>
                   </div>
+                  {printEnrollment.discountAmount && printEnrollment.discountAmount > 0 && (
+                    <div className="flex italic text-green-600">
+                      <span className="w-36 shrink-0">Ưu đãi giảm giá:</span>
+                      <span className="font-bold">-{formatCurrency(printEnrollment.discountAmount)} đồng</span>
+                    </div>
+                  )}
                   <div className="flex border-t border-slate-100 pt-4">
                     <span className="w-36 shrink-0 text-slate-800 font-bold uppercase text-xs">Tổng tiền thanh toán:</span>
                     <span className="font-black text-slate-900">{formatCurrency(printEnrollment.totalTuition)} đồng</span>
@@ -631,16 +669,46 @@ const StudentManager: React.FC<StudentManagerProps> = ({
                 <div className="col-span-2"><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Chọn lớp học đang mở</label><select className="w-full p-4 bg-slate-50 border-0 rounded-2xl outline-none focus:ring-2 focus:ring-red-500 font-bold text-slate-800 shadow-inner" value={tuitionForm.classId} onChange={(e) => setTuitionForm({...tuitionForm, classId: e.target.value})}>{activeClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                 <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Ngày bắt đầu</label><input type="date" className="w-full p-4 bg-slate-50 border-0 rounded-2xl font-bold text-slate-800 shadow-inner" value={tuitionForm.startDate} onChange={(e) => setTuitionForm({...tuitionForm, startDate: e.target.value})} /></div>
                 <div><label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Ngày kết thúc</label><input type="date" className="w-full p-4 bg-slate-50 border-0 rounded-2xl font-bold text-slate-800 shadow-inner" value={tuitionForm.endDate} onChange={(e) => setTuitionForm({...tuitionForm, endDate: e.target.value})} /></div>
+                
                 <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 flex flex-col gap-5 col-span-2">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex-1"><label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Học phí / Buổi</label><input type="number" className="bg-white p-3 rounded-xl text-lg font-black text-slate-800 w-full border border-slate-200" value={tuitionForm.tuitionPerSession} onChange={(e) => setTuitionForm({...tuitionForm, tuitionPerSession: parseInt(e.target.value) || 0})} /></div>
                     <div className="w-full"><label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Phí tài liệu/sách</label><input type="number" className="bg-white p-3 rounded-xl text-lg font-black text-blue-600 w-full border border-slate-200" value={tuitionForm.materialFee} onChange={(e) => setTuitionForm({...tuitionForm, materialFee: parseInt(e.target.value) || 0})} /></div>
                   </div>
+                  
+                  {/* PHẦN ƯU ĐÃI GIẢM GIÁ */}
+                  <div className="border-t border-slate-200 pt-5 space-y-3">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Ưu đãi giảm giá</label>
+                    <div className="flex gap-4">
+                      <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm shrink-0">
+                        <button 
+                          onClick={() => setTuitionForm({...tuitionForm, discountType: 'percent'})}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${tuitionForm.discountType === 'percent' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}
+                        >%</button>
+                        <button 
+                          onClick={() => setTuitionForm({...tuitionForm, discountType: 'amount'})}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${tuitionForm.discountType === 'amount' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}
+                        >VNĐ</button>
+                      </div>
+                      <input 
+                        type="number" 
+                        placeholder={tuitionForm.discountType === 'percent' ? "Số %" : "Số tiền mặt"}
+                        className="flex-1 bg-white p-3 rounded-xl text-lg font-black text-green-600 border border-slate-200"
+                        value={tuitionForm.discountValue || ''}
+                        onChange={(e) => setTuitionForm({...tuitionForm, discountValue: parseInt(e.target.value) || 0})}
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex justify-between items-center border-t border-slate-200 pt-4">
                     <div className="flex items-center gap-4"><label className="block text-[10px] font-black text-slate-400 uppercase">Số buổi học:</label><input type="number" className="bg-white p-2 w-16 rounded-lg text-sm font-black text-red-600 border" value={tuitionForm.sessions} onChange={(e) => handleSessionsChange(parseInt(e.target.value) || 0)} /></div>
-                    <div className="text-right"><span className="text-[10px] font-black text-slate-400 uppercase">Tổng cộng:</span><p className="text-2xl font-black text-red-700 leading-none">{formatCurrency(tuitionForm.totalTuition)}</p></div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-black text-slate-400 uppercase">Tổng sau ưu đãi:</span>
+                      <p className="text-2xl font-black text-red-700 leading-none">{formatCurrency(tuitionForm.totalTuition)}</p>
+                    </div>
                   </div>
                 </div>
+
                 <div className="bg-slate-900 p-6 rounded-[2rem] col-span-2">
                     <label className="block text-[10px] font-black text-white/40 uppercase mb-2">Số tiền thực đóng</label>
                     <input type="number" className="bg-transparent text-3xl font-black text-white w-full outline-none" value={tuitionForm.paidAmount} onChange={(e) => setTuitionForm({...tuitionForm, paidAmount: parseInt(e.target.value) || 0})} />

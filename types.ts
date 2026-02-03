@@ -82,6 +82,9 @@ export interface Enrollment {
   calculatedSessions: number;
   tuitionPerSession: number;
   materialFee: number;
+  discountType?: 'percent' | 'amount';
+  discountValue?: number;
+  discountAmount?: number;
   totalTuition: number;
   paidAmount: number;
   status: 'paid' | 'partial' | 'unpaid';
