@@ -141,11 +141,39 @@ const Schedule: React.FC<ScheduleProps> = ({
     return items.sort((a, b) => a.startTime.localeCompare(b.startTime));
   };
 
+  // HÀM KIỂM TRA GIỚI HẠN HỌC BÙ (Tối đa 2 buổi/tháng)
+  const countMakeupSessionsInMonth = (studentId: string, dateStr: string) => {
+    const targetDate = new Date(dateStr);
+    const targetMonth = targetDate.getMonth();
+    const targetYear = targetDate.getFullYear();
+
+    return attendanceRecords.filter(r => {
+      const rDate = new Date(r.date);
+      // Không đếm bản ghi hiện tại nếu đang sửa
+      if (r.date === dateStr && r.classId === selectedClassForAttendance?.id) return false;
+      
+      return rDate.getMonth() === targetMonth && 
+             rDate.getFullYear() === targetYear &&
+             r.studentStatuses.some(ss => ss.studentId === studentId && ss.status === 'absent-makeup');
+    }).length;
+  };
+
+  const handleStatusChange = (studentId: string, newStatus: AttendanceStatus) => {
+    if (newStatus === 'absent-makeup') {
+      const makeupCount = countMakeupSessionsInMonth(studentId, attendanceDate);
+      if (makeupCount >= 2) {
+        alert(`Học viên này đã dùng hết 2 buổi học bù định mức trong tháng ${new Date(attendanceDate).getMonth() + 1}. Hệ thống tự động chuyển sang trạng thái VẮNG.`);
+        setTempStudentStatuses(prev => prev.map(s => s.studentId === studentId ? { ...s, status: 'absent' } : s));
+        return;
+      }
+    }
+    setTempStudentStatuses(prev => prev.map(s => s.studentId === studentId ? { ...s, status: newStatus } : s));
+  };
+
   const handleOpenAttendance = (cls: Class, date: string) => {
     setSelectedClassForAttendance(cls);
     setAttendanceDate(date);
     
-    // Lọc ra các học viên có đăng ký hợp lệ trong ngày này
     const validStudentIdsAtDate = enrollments
       .filter(e => e.classId === cls.id && date >= e.startDate && date <= e.endDate)
       .map(e => e.studentId);
@@ -153,8 +181,6 @@ const Schedule: React.FC<ScheduleProps> = ({
     const existing = attendanceRecords.find(r => r.classId === cls.id && r.date === date);
     
     if (existing) {
-      // Nếu đã có bản ghi điểm danh, ta lọc lại danh sách học viên trong bản ghi đó
-      // để chỉ giữ lại những người có đăng ký hợp lệ (phòng trường hợp học viên mới được thêm vào lớp sau này)
       const filteredStatuses = (existing.studentStatuses || []).filter(ss => 
         validStudentIdsAtDate.includes(ss.studentId)
       );
@@ -165,7 +191,6 @@ const Schedule: React.FC<ScheduleProps> = ({
       setTempTaIn(existing.taStartTime || '18:00');
       setTempTaOut(existing.taEndTime || '20:00');
     } else {
-      // Nếu chưa có bản ghi, tạo mới dựa trên danh sách học viên có hiệu lực đăng ký
       setTempStudentStatuses(validStudentIdsAtDate.map(sid => ({ studentId: sid, status: 'present' as AttendanceStatus })));
       setTempTeacherPresent(true);
       setTempTeacherId(cls.teacherId);
@@ -472,26 +497,35 @@ const Schedule: React.FC<ScheduleProps> = ({
                   <span className="text-xl">🎓</span>
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Học viên ({tempStudentStatuses.length})</h4>
                 </div>
-                {tempStudentStatuses.map(ss => (
-                  <div key={ss.studentId} className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-[2rem] hover:shadow-md transition-all group">
-                    <span className="font-black text-slate-700">{students.find(s => s.id === ss.studentId)?.name}</span>
-                    <div className="flex gap-1">
-                      {(['present', 'absent', 'absent-makeup'] as const).map(status => (
-                        <button 
-                          key={status} 
-                          onClick={() => setTempStudentStatuses(prev => prev.map(s => s.studentId === ss.studentId ? { ...s, status } : s))} 
-                          className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase transition-all ${
-                            ss.status === status 
-                              ? status === 'present' ? 'bg-green-600 text-white shadow-lg' : status === 'absent' ? 'bg-slate-900 text-white shadow-lg' : 'bg-amber-500 text-white shadow-lg'
-                              : 'bg-slate-50 text-slate-400'
-                          }`}
-                        >
-                          {status === 'present' ? 'CÓ MẶT' : status === 'absent' ? 'VẮNG' : 'BÙ'}
-                        </button>
-                      ))}
+                {tempStudentStatuses.map(ss => {
+                  const currentMakeupCount = countMakeupSessionsInMonth(ss.studentId, attendanceDate);
+                  const isLimitReached = currentMakeupCount >= 2;
+                  
+                  return (
+                    <div key={ss.studentId} className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-[2rem] hover:shadow-md transition-all group">
+                      <div>
+                        <span className="font-black text-slate-700">{students.find(s => s.id === ss.studentId)?.name}</span>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Học bù tháng này: {currentMakeupCount}/2</p>
+                      </div>
+                      <div className="flex gap-1">
+                        {(['present', 'absent', 'absent-makeup'] as const).map(status => (
+                          <button 
+                            key={status} 
+                            onClick={() => handleStatusChange(ss.studentId, status)} 
+                            className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase transition-all ${
+                              ss.status === status 
+                                ? status === 'present' ? 'bg-green-600 text-white shadow-lg' : status === 'absent' ? 'bg-slate-900 text-white shadow-lg' : 'bg-amber-500 text-white shadow-lg'
+                                : 'bg-slate-50 text-slate-400'
+                            } ${status === 'absent-makeup' && isLimitReached ? 'opacity-30' : ''}`}
+                            title={status === 'absent-makeup' && isLimitReached ? "Học viên đã hết hạn mức học bù tháng này" : ""}
+                          >
+                            {status === 'present' ? 'CÓ MẶT' : status === 'absent' ? 'VẮNG' : 'BÙ'}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {tempStudentStatuses.length === 0 && (
                   <div className="p-10 text-center border-2 border-dashed rounded-[2rem] text-slate-300 font-bold text-xs uppercase italic">
                     Không có học viên nào đăng ký học trong ngày này
