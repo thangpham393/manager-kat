@@ -51,6 +51,13 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
     }).sort((a, b) => b.date.localeCompare(a.date));
   }, [transactions, activeTab, filterCategory, searchQuery, startDate, endDate]);
 
+  // TÍNH TOÁN TỔNG KẾT THEO BỘ LỌC
+  const filteredSummary = useMemo(() => {
+    const income = filteredTransactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + curr.amount, 0);
+    const expense = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + curr.amount, 0);
+    return { income, expense, balance: income - expense };
+  }, [filteredTransactions]);
+
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + curr.amount, 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + curr.amount, 0);
 
@@ -109,6 +116,9 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
     setEndDate('');
     setSearchQuery('');
   };
+
+  // Kiểm tra xem có đang áp dụng bộ lọc nào không
+  const isFiltering = filterCategory !== 'all' || startDate !== '' || endDate !== '' || searchQuery !== '';
 
   return (
     <div className="space-y-6">
@@ -225,6 +235,29 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
         </div>
       </div>
 
+      {/* SUMMARY BAR (SỐ LIỆU THEO BỘ LỌC) */}
+      <div className="flex flex-wrap gap-4 items-center bg-slate-900 p-4 px-8 rounded-[1.5rem] shadow-xl">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">KẾT QUẢ ĐANG HIỆN:</span>
+          <span className="bg-white/10 text-white px-2 py-1 rounded-lg text-[10px] font-black">{filteredTransactions.length} Giao dịch</span>
+        </div>
+        <div className="h-4 w-px bg-white/10 hidden md:block"></div>
+        <div className="flex gap-6 flex-1 justify-end">
+          <div className="flex flex-col">
+            <span className="text-[8px] font-black text-green-400 uppercase leading-none mb-1">Tổng thu lọc</span>
+            <span className="text-sm font-black text-white">{formatCurrency(filteredSummary.income)}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[8px] font-black text-red-400 uppercase leading-none mb-1">Tổng chi lọc</span>
+            <span className="text-sm font-black text-white">{formatCurrency(filteredSummary.expense)}</span>
+          </div>
+          <div className="flex flex-col border-l border-white/10 pl-6">
+            <span className="text-[8px] font-black text-blue-400 uppercase leading-none mb-1">Số dư còn lại</span>
+            <span className="text-sm font-black text-white">{formatCurrency(filteredSummary.balance)}</span>
+          </div>
+        </div>
+      </div>
+
       {/* Main Table Section */}
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
@@ -312,7 +345,6 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
             </div>
             
             <div className="p-10 space-y-8 overflow-y-auto no-scrollbar">
-              {/* Type Switcher - Disable when editing automatic tuition payments to prevent errors */}
               <div className="flex bg-slate-100 p-1.5 rounded-2xl shrink-0">
                 <button 
                   disabled={!!editingTransaction?.studentId}
