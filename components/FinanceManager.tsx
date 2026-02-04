@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { formatCurrency } from '../utils/financeUtils';
 import { Transaction, Teacher, Class, Enrollment } from '../types';
 
@@ -17,6 +17,12 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
   
+  // Filter states
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
   // Form state
   const [formData, setFormData] = useState<Omit<Transaction, 'id'>>({
     type: 'expense',
@@ -28,10 +34,23 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
 
   const categories = {
     income: ['Học phí', 'Bán giáo trình', 'Tổ chức sự kiện', 'Khác'],
-    expense: ['Lương giáo viên', 'Mặt bằng', 'Điện nước', 'Marketing', 'Cơ sở vật chất', 'Khác']
+    expense: ['Lương giáo viên', 'Mặt bằng', 'Điện nước', 'Marketing', 'Cơ sở vật chất', 'Trà sữa', 'Đồ ăn', 'Khác']
   };
 
-  const filtered = transactions.filter(t => activeTab === 'all' || t.type === activeTab);
+  // Logic lọc dữ liệu tổng hợp
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      const matchTab = activeTab === 'all' || t.type === activeTab;
+      const matchCategory = filterCategory === 'all' || t.category === filterCategory;
+      const matchSearch = t.description.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          t.category.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchStartDate = !startDate || t.date >= startDate;
+      const matchEndDate = !endDate || t.date <= endDate;
+
+      return matchTab && matchCategory && matchSearch && matchStartDate && matchEndDate;
+    }).sort((a, b) => b.date.localeCompare(a.date));
+  }, [transactions, activeTab, filterCategory, searchQuery, startDate, endDate]);
+
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + curr.amount, 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + curr.amount, 0);
 
@@ -84,19 +103,26 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
     setDeletingTransactionId(null);
   };
 
+  const resetFilters = () => {
+    setFilterCategory('all');
+    setStartDate('');
+    setEndDate('');
+    setSearchQuery('');
+  };
+
   return (
     <div className="space-y-6">
       {/* Stats Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-green-100 group hover:shadow-lg transition-all">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tổng Thu</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tổng Thu (Tích lũy)</p>
           <p className="text-3xl font-black text-green-600">{formatCurrency(totalIncome)}</p>
           <div className="mt-2 h-1 w-full bg-green-50 rounded-full overflow-hidden">
             <div className="h-full bg-green-500 w-full"></div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-red-100 group hover:shadow-lg transition-all">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tổng Chi (Chi phí)</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tổng Chi (Tích lũy)</p>
           <p className="text-3xl font-black text-red-600">{formatCurrency(totalExpense)}</p>
           <div className="mt-2 h-1 w-full bg-red-50 rounded-full overflow-hidden">
             <div className="h-full bg-red-500 w-full"></div>
@@ -111,14 +137,14 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
         </div>
       </div>
 
-      {/* Main Table Section */}
-      <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-8 border-b flex flex-col md:flex-row justify-between items-center gap-6">
+      {/* Advanced Filters Bar */}
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full md:w-auto overflow-x-auto no-scrollbar">
             {(['all', 'income', 'expense'] as const).map(tab => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => { setActiveTab(tab); setFilterCategory('all'); }}
                 className={`flex-1 md:flex-none px-8 py-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all whitespace-nowrap ${
                   activeTab === tab ? 'bg-white shadow-md text-slate-900' : 'text-slate-400 hover:text-slate-600'
                 }`}
@@ -127,14 +153,80 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
               </button>
             ))}
           </div>
-          <button 
-            onClick={handleOpenCreate}
-            className="w-full md:w-auto bg-slate-900 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 active:scale-95 whitespace-nowrap"
-          >
-            ＋ Nhập giao dịch mới
-          </button>
+          <div className="flex gap-2 w-full md:w-auto">
+            <button 
+              onClick={resetFilters}
+              className="px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
+            >
+              Đặt lại lọc
+            </button>
+            <button 
+              onClick={handleOpenCreate}
+              className="flex-1 md:flex-none bg-slate-900 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 active:scale-95 whitespace-nowrap"
+            >
+              ＋ Nhập giao dịch
+            </button>
+          </div>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-slate-50">
+          <div className="relative">
+            <label className="block text-[9px] font-black text-slate-400 uppercase mb-2 ml-1">Tìm nội dung</label>
+            <input 
+              type="text" 
+              placeholder="Gõ từ khóa..."
+              className="w-full pl-4 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-slate-900 transition-all"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-[9px] font-black text-slate-400 uppercase mb-2 ml-1">Hạng mục</label>
+            <select 
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none cursor-pointer"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <option value="all">Tất cả hạng mục</option>
+              {activeTab === 'all' ? (
+                <>
+                  <optgroup label="Khoản thu">
+                    {categories.income.map(c => <option key={c} value={c}>{c}</option>)}
+                  </optgroup>
+                  <optgroup label="Khoản chi">
+                    {categories.expense.map(c => <option key={c} value={c}>{c}</option>)}
+                  </optgroup>
+                </>
+              ) : (
+                (activeTab === 'income' ? categories.income : categories.expense).map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))
+              )}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[9px] font-black text-slate-400 uppercase mb-2 ml-1">Từ ngày</label>
+            <input 
+              type="date" 
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-[9px] font-black text-slate-400 uppercase mb-2 ml-1">Đến ngày</label>
+            <input 
+              type="date" 
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Table Section */}
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -147,7 +239,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filtered.sort((a,b) => b.date.localeCompare(a.date)).map(t => {
+              {filteredTransactions.map(t => {
                 const isDeleting = deletingTransactionId === t.id;
                 return (
                   <tr key={t.id} className="hover:bg-slate-50/50 transition-colors group relative">
@@ -160,6 +252,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
                           ? 'bg-green-50 border-green-100 text-green-700' 
                           : 'bg-red-50 border-red-100 text-red-700'
                       }`}>
+                        {t.category === 'Trà sữa' ? '🧋 ' : t.category === 'Đồ ăn' ? '🍕 ' : ''}
                         {t.category}
                       </span>
                     </td>
@@ -190,12 +283,13 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
                   </tr>
                 );
               })}
-              {filtered.length === 0 && (
+              {filteredTransactions.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-10 py-32 text-center">
                     <div className="flex flex-col items-center gap-4">
-                      <span className="text-5xl opacity-20">💸</span>
-                      <p className="text-slate-300 italic font-medium">Chưa có giao dịch nào được ghi nhận</p>
+                      <span className="text-5xl opacity-20">🔎</span>
+                      <p className="text-slate-300 italic font-medium">Không tìm thấy giao dịch nào phù hợp với bộ lọc</p>
+                      <button onClick={resetFilters} className="text-[10px] font-black uppercase text-red-600 hover:underline">Xóa tất cả bộ lọc</button>
                     </div>
                   </td>
                 </tr>
@@ -275,7 +369,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ enrollments, teachers, 
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Mô tả chi tiết</label>
                   <textarea 
-                    placeholder="Ví dụ: Tiền điện tháng 03/2024..."
+                    placeholder="Ví dụ: Tiền mua trà sữa cho lớp Giao tiếp..."
                     className="w-full p-5 bg-slate-50 border-2 border-slate-50 focus:border-slate-200 rounded-2xl font-bold text-slate-800 outline-none transition-all resize-none h-24"
                     value={formData.description}
                     onChange={(e) => setFormData({...formData, description: e.target.value})}
